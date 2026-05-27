@@ -1,191 +1,947 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ASYAF_DATA_LOG</title>
-    <style>
-        body {
-            margin: 0;
-            background: #050505;
-            overflow: hidden;
-            touch-action: none; /* Prevents mobile double-tap zooming */
-        }
-        /* Mobile CRT Overlay */
-        .crt::after {
-            content: " ";
-            display: block;
-            position: absolute;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%);
-            background-size: 100% 5px;
-            z-index: 999;
-            pointer-events: none;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ASYAF ARCHIVAL CORP — DATA LOG</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
+
+  :root {
+    --amber: #d4a52a;
+    --amber-dim: #7a5c10;
+    --amber-bright: #f0c040;
+    --red: #c0392b;
+    --green: #2ecc71;
+    --bg: #080807;
+    --surface: #0e0d0b;
+    --border: #2a2616;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--amber);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: default;
+    user-select: none;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.18) 2px,
+      rgba(0,0,0,0.18) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* CRT vignette */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.7) 100%);
+    pointer-events: none;
+    z-index: 9998;
+  }
+
+  #terminal {
+    width: 420px;
+    max-width: 100vw;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* ── SCREENS ── */
+  .screen { display: none; flex-direction: column; flex: 1; padding: 24px 20px; }
+  .screen.active { display: flex; }
+
+  /* ── BOOT SCREEN ── */
+  #boot-screen { justify-content: center; align-items: center; gap: 0; }
+
+  .boot-logo {
+    font-family: 'VT323', monospace;
+    font-size: 42px;
+    color: var(--amber-bright);
+    letter-spacing: 4px;
+    text-align: center;
+    text-shadow: 0 0 20px rgba(240,192,64,0.4);
+    animation: flicker 4s infinite;
+    line-height: 1.1;
+  }
+
+  .boot-sub {
+    font-size: 11px;
+    color: var(--amber-dim);
+    text-align: center;
+    letter-spacing: 3px;
+    margin-top: 6px;
+  }
+
+  .boot-separator {
+    width: 100%;
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 28px 0;
+  }
+
+  .boot-log {
+    font-size: 11px;
+    color: var(--amber-dim);
+    line-height: 2;
+    width: 100%;
+  }
+
+  .boot-log .ok { color: var(--green); }
+  .boot-log .warn { color: var(--amber); }
+  .boot-log .err { color: var(--red); }
+
+  .boot-prompt {
+    margin-top: 32px;
+    font-size: 13px;
+    color: var(--amber);
+    text-align: center;
+    animation: blink-text 1.2s step-end infinite;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    padding: 10px 24px;
+    letter-spacing: 2px;
+  }
+  .boot-prompt:hover { border-color: var(--amber-dim); background: rgba(212,165,42,0.05); }
+
+  /* ── GAME SCREEN ── */
+  #game-screen { gap: 0; }
+
+  .game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+  }
+
+  .room-id {
+    font-family: 'VT323', monospace;
+    font-size: 28px;
+    color: var(--amber-bright);
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px rgba(240,192,64,0.3);
+  }
+
+  .status-bar {
+    font-size: 10px;
+    color: var(--amber-dim);
+    text-align: right;
+    line-height: 1.8;
+  }
+
+  .status-bar span { color: var(--amber); }
+
+  /* Mini map */
+  #minimap {
+    width: 100%;
+    border: 1px solid var(--border);
+    margin-bottom: 14px;
+    position: relative;
+    overflow: hidden;
+    background: #090908;
+  }
+
+  /* Room description */
+  #room-desc {
+    font-size: 12px;
+    line-height: 1.9;
+    color: #b89030;
+    min-height: 120px;
+    border-left: 2px solid var(--amber-dim);
+    padding-left: 12px;
+    margin-bottom: 14px;
+    flex: 1;
+  }
+
+  #room-desc .highlight { color: var(--amber-bright); }
+  #room-desc .redact { color: var(--red); }
+
+  /* Items found */
+  #item-line {
+    font-size: 11px;
+    color: var(--green);
+    min-height: 18px;
+    margin-bottom: 10px;
+    padding-left: 14px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  #item-line.show { opacity: 1; }
+
+  /* Controls */
+  .controls-label {
+    font-size: 10px;
+    color: var(--amber-dim);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  .dpad {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .dpad-btn {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--amber-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 10px 0;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .dpad-btn:active, .dpad-btn:hover {
+    background: rgba(212,165,42,0.08);
+    color: var(--amber);
+    border-color: var(--amber-dim);
+  }
+
+  .dpad-btn.disabled {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  .dpad-btn.center-cell {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .dpad-btn.left-cell { grid-column: 1; grid-row: 2; }
+  .dpad-btn.right-cell { grid-column: 3; grid-row: 2; }
+  .dpad-btn.back-cell { grid-column: 2; grid-row: 2; }
+
+  /* Inventory */
+  #inventory {
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+    font-size: 10px;
+    color: var(--amber-dim);
+    line-height: 1.8;
+  }
+
+  #inventory .inv-label { letter-spacing: 2px; margin-bottom: 4px; }
+  #inventory .inv-items { color: var(--amber); }
+
+  /* ── ANOMALY SCREEN ── */
+  #anomaly-screen {
+    background: #000;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+
+  .anomaly-text {
+    font-family: 'VT323', monospace;
+    font-size: 26px;
+    color: var(--red);
+    line-height: 1.6;
+    animation: glitch 0.3s infinite;
+    max-width: 320px;
+    text-shadow: 0 0 12px rgba(192,57,43,0.6);
+  }
+
+  .anomaly-sub {
+    margin-top: 32px;
+    font-size: 11px;
+    color: #555;
+    letter-spacing: 2px;
+    animation: blink-text 2s step-end infinite;
+    cursor: pointer;
+  }
+
+  .anomaly-timer {
+    font-family: 'VT323', monospace;
+    font-size: 48px;
+    color: var(--red);
+    margin: 24px 0;
+    text-shadow: 0 0 30px rgba(192,57,43,0.8);
+  }
+
+  /* ── FOUND LOG SCREEN ── */
+  #log-screen {
+    justify-content: center;
+    background: #050505;
+  }
+
+  .log-header {
+    font-family: 'VT323', monospace;
+    font-size: 24px;
+    color: var(--green);
+    letter-spacing: 3px;
+    margin-bottom: 16px;
+    text-shadow: 0 0 10px rgba(46,204,113,0.4);
+  }
+
+  .log-body {
+    font-size: 11px;
+    color: #7a9a6a;
+    line-height: 2;
+    border: 1px solid #1a3a1a;
+    padding: 14px;
+    background: #040804;
+    flex: 0;
+    margin-bottom: 20px;
+  }
+
+  .log-continue {
+    font-size: 11px;
+    color: var(--amber-dim);
+    text-align: center;
+    letter-spacing: 2px;
+    cursor: pointer;
+    animation: blink-text 1.5s step-end infinite;
+    border: 1px solid var(--border);
+    padding: 8px 20px;
+    align-self: center;
+  }
+  .log-continue:hover { border-color: var(--amber-dim); }
+
+  /* ── ANIMATIONS ── */
+  @keyframes flicker {
+    0%, 95%, 100% { opacity: 1; }
+    96% { opacity: 0.6; }
+    97% { opacity: 1; }
+    98% { opacity: 0.4; }
+    99% { opacity: 1; }
+  }
+
+  @keyframes blink-text {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  @keyframes glitch {
+    0% { transform: translate(0,0) skewX(0deg); }
+    20% { transform: translate(-2px, 1px) skewX(-1deg); }
+    40% { transform: translate(2px, -1px) skewX(1deg); }
+    60% { transform: translate(-1px, 2px) skewX(0.5deg); }
+    80% { transform: translate(1px, -2px) skewX(-0.5deg); }
+    100% { transform: translate(0,0) skewX(0deg); }
+  }
+
+  @keyframes type-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .type-anim { animation: type-in 0.3s ease forwards; }
+
+  /* Typewriter effect */
+  .typewriter { overflow: hidden; white-space: pre-wrap; word-break: break-word; }
+
+  /* Progress bar */
+  .progress-bar {
+    height: 3px;
+    background: var(--border);
+    margin-bottom: 14px;
+    position: relative;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--amber-dim);
+    transition: width 0.5s ease;
+  }
+
+  /* Noise overlay for anomaly */
+  .noise {
+    position: fixed;
+    inset: 0;
+    opacity: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 200px;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    z-index: 9997;
+    transition: opacity 0.3s;
+  }
+  .noise.active { opacity: 0.15; animation: noise-shift 0.15s infinite; }
+
+  @keyframes noise-shift {
+    0% { background-position: 0 0; }
+    25% { background-position: 40px -20px; }
+    50% { background-position: -30px 40px; }
+    75% { background-position: 20px 30px; }
+    100% { background-position: 0 0; }
+  }
+
+  canvas#minimap { display: block; width: 100%; height: 80px; }
+</style>
 </head>
-<body class="crt">
+<body>
 
-    <script src="https://unpkg.com/kaboom@3000.1.17/dist/kaboom.js"></script>
+<div class="noise" id="noise"></div>
 
-    <script>
-        // Initialize Kaboom with a vertical resolution tailored for mobile screens
-        kaboom({
-            width: 360,
-            height: 640,
-            letterbox: true,
-            background: [ 22, 24, 18 ], // Dingy, dirty wallpaper yellow/green tint
-        });
+<div id="terminal">
 
-        // Load retro blip audio
-        loadSound("tap", "https://kaboomjs.com/sprites/blip.mp3");
+  <!-- BOOT SCREEN -->
+  <div class="screen active" id="boot-screen">
+    <div class="boot-logo">ASYAF<br>ARCHIVAL</div>
+    <div class="boot-sub">CORP. — U.S. GOVERNMENT PROPERTY</div>
+    <hr class="boot-separator">
+    <div class="boot-log" id="boot-log"></div>
+    <div class="boot-prompt" id="boot-prompt" style="display:none" onclick="startGame()">
+      [ TAP TO DECRYPT ARCHIVE ]
+    </div>
+  </div>
 
-        // --- GLOBAL LORE DATA ---
-        let currentRoom = 101;
-        let logsFound = 0;
+  <!-- GAME SCREEN -->
+  <div class="screen" id="game-screen">
+    <div class="game-header">
+      <div>
+        <div class="room-id" id="room-id">ROOM ███</div>
+        <div style="font-size:10px; color: var(--amber-dim); margin-top:2px;" id="room-coords"></div>
+      </div>
+      <div class="status-bar">
+        LOGS: <span id="stat-logs">0</span>/6<br>
+        DEPTH: <span id="stat-depth">0</span>m<br>
+        SANITY: <span id="stat-sanity">100</span>%
+      </div>
+    </div>
 
-        // --- SCENE 1: THE MOBILE BOOT SCREEN ---
-        scene("intro", () => {
-            add([
-                text("ASYAF ARCHIVAL CORP.\nPROPERTY OF US GOVT.\n\nRESTRICTED ACCESS\n\n[TAP SCREEN TO DECRYPT]", {
-                    size: 14,
-                    font: "monospace",
-                    width: 300,
-                    align: "center"
-                }),
-                pos(center()),
-                anchor("center"),
-                color(220, 200, 150)
-            ]);
+    <canvas id="minimap"></canvas>
 
-            onMousePress(() => {
-                play("tap", { volume: 0.5 });
-                go("game");
-            });
-        });
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
 
-        // --- SCENE 2: INTERACTIVE BACKROOMS DISCOVERY ---
-        scene("game", () => {
-            
-            // Lore texts tied to specific room "coordinates"
-            function getRoomLore(room) {
-                if (room === 101) return "ROOM 101:\nFluorescent hum is registered at 110Hz. The damp carpet smell is overwhelming. The walls stretch infinitely north.";
-                if (room === 102) return "ROOM 102:\nFound a discarded VHS tape labeled 'DO NOT PLAY'. Footsteps heard behind the partition wall. Keep moving.";
-                if (room === 103) return "ROOM 103:\nLOG_ENTRY_04:\n'We built these halls to store data. The data grew. It synthesized space. We cannot find the exit.'";
-                return "ROOM " + room + ":\nEndless repeating beige wallpaper. The architecture makes no geometric sense. Silence. Too much silence.";
-            }
+    <div id="room-desc"></div>
 
-            // Display Lore Text
-            const description = add([
-                text(getRoomLore(currentRoom), { size: 13, font: "monospace", width: 320 }),
-                pos(20, 60),
-                color(40, 40, 40)
-            ]);
+    <div id="item-line"></div>
 
-            // Interface Dividers
-            add([
-                rect(320, 2),
-                pos(20, 320),
-                color(100, 100, 80)
-            ]);
+    <div class="controls-label">— NAVIGATE —</div>
+    <div class="dpad">
+      <div></div>
+      <div class="dpad-btn center-cell" id="btn-n" onclick="move('n')">▲ NORTH</div>
+      <div></div>
+      <div class="dpad-btn left-cell" id="btn-w" onclick="move('w')">◀ WEST</div>
+      <div class="dpad-btn back-cell" id="btn-s" onclick="move('s')">▼ SOUTH</div>
+      <div class="dpad-btn right-cell" id="btn-e" onclick="move('e')">EAST ▶</div>
+    </div>
 
-            // Mobile-friendly Control D-Pad labels
-            add([
-                text("NAVIGATE SYSTEM\n(TAP EDGES TO MOVE)", { size: 12, font: "monospace", align: "center" }),
-                pos(width() / 2, 350),
-                anchor("center"),
-                color(80, 80, 70)
-            ]);
+    <div id="inventory">
+      <div class="inv-label">— INVENTORY —</div>
+      <div class="inv-items" id="inv-items">[ EMPTY ]</div>
+    </div>
+  </div>
 
-            const northBtn = add([
-                text("[ NORTH ]", { size: 16, font: "monospace" }),
-                pos(width() / 2, 400),
-                anchor("center"),
-                color(40, 40, 40),
-                area()
-            ]);
+  <!-- LOG FOUND SCREEN -->
+  <div class="screen" id="log-screen">
+    <div class="log-header">// LOG ACQUIRED //</div>
+    <div class="log-body" id="log-body"></div>
+    <div class="log-continue" onclick="continueFromLog()">[ PRESS TO CONTINUE ]</div>
+  </div>
 
-            const westBtn = add([
-                text("[ WEST ]", { size: 16, font: "monospace" }),
-                pos(width() / 2 - 80, 460),
-                anchor("center"),
-                color(40, 40, 40),
-                area()
-            ]);
+  <!-- ANOMALY SCREEN -->
+  <div class="screen" id="anomaly-screen">
+    <div class="anomaly-text" id="anomaly-text"></div>
+    <div class="anomaly-timer" id="anomaly-timer"></div>
+    <div class="anomaly-sub" id="anomaly-sub"></div>
+  </div>
 
-            const eastBtn = add([
-                text("[ EAST ]", { size: 16, font: "monospace" }),
-                pos(width() / 2 + 80, 460),
-                anchor("center"),
-                color(40, 40, 40),
-                area()
-            ]);
+</div>
 
-            // Touch Mechanics for Movement
-            northBtn.onClick(() => {
-                play("tap", { volume: 0.4 });
-                currentRoom += 1;
-                logsFound++;
-                
-                if (logsFound >= 4) {
-                    go("anomaly");
-                } else {
-                    description.text = getRoomLore(currentRoom);
-                }
-            });
+<script>
+// ─── AUDIO ENGINE ───
+let audioCtx = null;
 
-            westBtn.onClick(() => {
-                play("tap", { volume: 0.4 });
-                currentRoom -= 2;
-                description.text = getRoomLore(currentRoom);
-            });
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  startAmbient();
+}
 
-            eastBtn.onClick(() => {
-                play("tap", { volume: 0.4 });
-                currentRoom += 3;
-                description.text = getRoomLore(currentRoom);
-            });
-        });
+function startAmbient() {
+  if (!audioCtx) return;
+  const bufSize = audioCtx.sampleRate * 2;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * 0.015;
 
-        // --- SCENE 3: THE CORRUPTED ENCOUNTER ---
-        scene("anomaly", () => {
-            shake(15);
-            play("tap", { volume: 1, detune: -1500 });
+  function loop() {
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 80 + Math.random() * 40;
+    filter.Q.value = 0.5;
+    const gain = audioCtx.createGain();
+    gain.gain.value = 0.08;
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(audioCtx.destination);
+    src.start();
+    src.onended = loop;
+  }
+  loop();
+}
 
-            // Inverse coloring to pitch black for distortion effect
-            add([
-                rect(width(), height()),
-                color(0, 0, 0),
-                z(-1)
-            ]);
+function playTap(pitch = 440, vol = 0.15) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'square';
+  osc.frequency.value = pitch;
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.12);
+}
 
-            const alertText = add([
-                text("CRITICAL ERROR:\n\nANOMALOUS ENTITY\nDETECTED IN ARCHIVE.\n\nIT HEARD YOUR FOOTSTEPS.", {
-                    size: 16,
-                    font: "monospace",
-                    width: 300,
-                    align: "center"
-                }),
-                pos(center()),
-                anchor("center"),
-                color(255, 50, 50)
-            ]);
+function playAlert() {
+  if (!audioCtx) return;
+  [880, 660, 440, 220].forEach((f, i) => {
+    setTimeout(() => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.value = f;
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.25);
+    }, i * 120);
+  });
+}
 
-            // Text glitch effect tracking fingers or random ticks
-            onUpdate(() => {
-                alertText.pos.x = center().x + rand(-3, 3);
-                alertText.pos.y = center().y + rand(-3, 3);
-            });
+function playFound() {
+  if (!audioCtx) return;
+  [523, 659, 784].forEach((f, i) => {
+    setTimeout(() => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = f;
+      gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.3);
+    }, i * 140);
+  });
+}
 
-            onMousePress(() => {
-                currentRoom = 101;
-                logsFound = 0;
-                go("intro");
-            });
-        });
+// ─── GAME STATE ───
+const GRID = 9;
+let px = 4, py = 4;
+let visited = new Set();
+let logsFound = 0;
+let inventory = [];
+let sanity = 100;
+let depth = 0;
+let pendingLog = null;
+let anomalyTimeout = null;
 
-        // Initialize Game Loop
-        go("intro");
-    </script>
+// Grid of room seeds
+const roomSeeds = {};
+function seedFor(x, y) {
+  const k = `${x},${y}`;
+  if (!roomSeeds[k]) roomSeeds[k] = Math.floor(Math.random() * 10000);
+  return roomSeeds[k];
+}
+
+// ─── ROOM LORE ───
+const ROOM_TEMPLATES = [
+  (id) => `Fluorescent tube ${id}-A flickers at 110Hz. The carpet— a mottled beige, texture approximating rough sand— extends north beyond visual range. Somewhere, a photocopier idles. It has been idling for <span class="highlight">17 years</span>.`,
+  (id) => `Standard partition configuration. Cubicle walls in taupe, height 1.8m. Filing cabinets: locked. The smell of <span class="highlight">mildew and old paper</span> is overwhelming. A motivational poster reads: "SYNERGY". The poster is wrong about many things.`,
+  (id) => `JUNCTION ${id}: hallway intersection. Four corridors diverge. The one marked MAINTENANCE has been welded shut. Faint scratching from inside it. Continuous. Rhythmic. It <span class="redact">— REDACTED —</span> should not be rhythmic.`,
+  (id) => `Break room. Vending machine stocked exclusively with a beverage brand that does not exist. Clock on wall reads <span class="highlight">13:78</span>. The microwave door hangs open. Something inside it is still warm.`,
+  (id) => `Document storage. Hundreds of filing boxes labeled in a cipher matching no known government standard. One box is open. Its contents: <span class="highlight">a single photograph of this room, taken from an angle that does not exist.</span>`,
+  (id) => `Conference room. Table set for eleven. Eleven chairs. Eleven name placards. All eleven read <span class="highlight">YOUR NAME HERE</span>. The whiteboard contains a flowchart that resolves to a single terminal node: ▓▓▓▓.`,
+  (id) => `Maintenance corridor. Exposed conduit. The pipes emit a sound measurable only as a feeling. Humidity at <span class="highlight">∞%</span>. A door labeled ARCHIVE SUB-LEVEL bears a handwritten note: <span class="redact">DO NOT OPEN FROM INSIDE.</span>`,
+  (id) => `Office. Ergonomic chair, position last occupied: <span class="highlight">unknown</span>. Desktop computer running. Screen displays this terminal. The operator of this terminal is you. The operator of that terminal is also <span class="highlight">you</span>.`,
+  (id) => `Emergency stairwell. Stairs descend 14 floors and ascend 14 floors and arrive at this stairwell. The exit signs are illuminated. They point <span class="highlight">inward</span>.`,
+];
+
+const SECRET_LOGS = [
+  {
+    title: "ARCHIVAL NOTE — FILE A-001",
+    body: `TO: DIRECTOR HAYES\nFROM: LEAD ARCHIVIST MOREAU\n\nThe spatial anomaly has expanded 3.2 meters this quarter. Our models indicated it would plateau. Our models were generated by the archive itself.\n\nWe are no longer certain the archive is storing data.\n\nWe believe the archive is generating it.\n\n— MOREAU\n[TRANSMISSION ENDS ABRUPTLY]`
+  },
+  {
+    title: "FIELD LOG — TEAM DELTA, DAY 4",
+    body: `Day 4. Keillor is gone. He walked north and did not come back. We can still hear his footsteps. They are getting closer.\n\nThe wallpaper is the same in every room. We measured it. The pattern repeats every 47cm. No wallpaper manufacturer uses a 47cm repeat. We checked.\n\nPrayer has been attempted. The archive responded.`
+  },
+  {
+    title: "TECHNICAL MEMO — HVAC ANOMALY",
+    body: `The ventilation system was designed for a 42-room footprint.\n\nThe ventilation system is servicing an estimated 4,000–UNKNOWN rooms.\n\nThe HVAC contractor was contacted. The HVAC contractor has not existed since 1987.\n\nThe ventilation continues to function. The temperature is maintained at exactly 22°C in every room.\n\nThis is impossible.`
+  },
+  {
+    title: "PERSONAL JOURNAL — UNKNOWN AUTHOR",
+    body: `I have been in here for what I believe is three weeks. I found a phone. Full signal. Five bars. I called my wife. She picked up.\n\nShe said I was standing in the kitchen.\n\nI was not standing in the kitchen.\n\nI could hear myself breathing through the phone. I recognized the sound. It was afraid.`
+  },
+  {
+    title: "ASYAF INTERNAL BULLETIN #0039",
+    body: `NOTICE: Do not attempt to find exit.\n\nAll exits are functional.\n\nAll exits lead here.\n\nThis is not a malfunction.\n\nThis was always the design.\n\nSincerely,\nASYAF ARCHIVAL CORP.\nDept. of Spatial Continuity\n[BUILDING SERVICES]`
+  },
+  {
+    title: "CORRUPTED FILE — PARTIAL RECOVERY",
+    body: `...and when we opened the final cabinet we found the documentation for this project. All of it. Every memo. Every log. Every personnel file.\n\nThe documentation included this document.\n\nThe documentation included the moment we found the documentation.\n\nIt continues past today's date.\n\nWe are not going to read past today's date.\n\n[FILE ENDS]`
+  },
+];
+
+const ITEMS = [
+  "KEYCARD (NO READER FOUND)",
+  "VHS TAPE — UNLABELED",
+  "PHOTOGRAPH (DO NOT EXAMINE)",
+  "MEMO — PAGES STUCK TOGETHER",
+  "EMPLOYEE BADGE — NAME REDACTED",
+  "COFFEE MUG — STILL WARM",
+  "YELLOW STICKY NOTE — BLANK",
+  "PAPERCLIP (UNUSUAL SHAPE)",
+];
+
+const SECRET_LOG_ROOMS = new Set();
+function assignSecretLogRooms() {
+  const pool = [];
+  for (let i = 0; i < GRID * GRID; i++) pool.push(i);
+  pool.sort(() => Math.random() - 0.5);
+  SECRET_LOG_ROOMS.clear();
+  for (let i = 0; i < SECRET_LOGS.length; i++) SECRET_LOG_ROOMS.add(pool[i]);
+}
+
+function roomIndex(x, y) { return y * GRID + x; }
+
+// ─── MINIMAP ───
+function drawMinimap() {
+  const canvas = document.getElementById('minimap');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.clientWidth;
+  canvas.height = 80;
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#090908';
+  ctx.fillRect(0, 0, W, H);
+
+  const cellW = W / GRID, cellH = H / GRID;
+  for (const k of visited) {
+    const [vx, vy] = k.split(',').map(Number);
+    const cx = vx * cellW, cy = vy * cellH;
+    ctx.fillStyle = '#1a1810';
+    ctx.fillRect(cx + 1, cy + 1, cellW - 2, cellH - 2);
+    if (SECRET_LOG_ROOMS.has(roomIndex(vx, vy)) && logsFound > 0) {
+      ctx.fillStyle = '#2a3a2a';
+      ctx.fillRect(cx + 2, cy + 2, cellW - 4, cellH - 4);
+    }
+  }
+  // Current position
+  const cx = px * cellW + cellW / 2, cy = py * cellH + cellH / 2;
+  ctx.fillStyle = '#d4a52a';
+  ctx.beginPath();
+  ctx.arc(cx, cy, Math.min(cellW, cellH) * 0.35, 0, Math.PI * 2);
+  ctx.fill();
+
+  // border
+  ctx.strokeStyle = '#2a2616';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0, 0, W, H);
+}
+
+// ─── ROOM DESCRIPTION ───
+let typewriterTimer = null;
+
+function showRoom() {
+  const key = `${px},${py}`;
+  visited.add(key);
+  depth = visited.size;
+
+  const ri = roomIndex(px, py);
+  const seed = seedFor(px, py);
+  const tmpl = ROOM_TEMPLATES[seed % ROOM_TEMPLATES.length];
+  const roomNum = 100 + ri;
+
+  document.getElementById('room-id').textContent = `ROOM ${roomNum}`;
+  document.getElementById('room-coords').textContent = `COORDS: ${px}-${py} | SECTOR: ${String.fromCharCode(65 + (seed % 6))}`;
+  document.getElementById('stat-logs').textContent = logsFound;
+  document.getElementById('stat-depth').textContent = depth;
+  document.getElementById('stat-sanity').textContent = Math.max(0, sanity);
+  document.getElementById('progress-fill').style.width = `${(logsFound / 6) * 100}%`;
+
+  drawMinimap();
+
+  const desc = document.getElementById('room-desc');
+  desc.innerHTML = '';
+
+  // Typewriter
+  const fullHtml = tmpl(roomNum);
+  let i = 0;
+  const stripped = fullHtml.replace(/<[^>]+>/g, '');
+  if (typewriterTimer) clearInterval(typewriterTimer);
+
+  function renderStep() {
+    if (i >= fullHtml.length) {
+      desc.innerHTML = fullHtml;
+      checkRoomEvent(ri);
+      return;
+    }
+    i += 3;
+    const partial = fullHtml.substring(0, i);
+    desc.innerHTML = partial;
+    typewriterTimer = setTimeout(renderStep, 18);
+  }
+  renderStep();
+
+  // Item chance
+  const itemEl = document.getElementById('item-line');
+  if (seed % 4 === 0 && !inventory.includes(ITEMS[seed % ITEMS.length])) {
+    const item = ITEMS[seed % ITEMS.length];
+    inventory.push(item);
+    itemEl.textContent = `▶ FOUND: ${item}`;
+    itemEl.classList.add('show');
+    updateInventory();
+    playFound();
+    setTimeout(() => itemEl.classList.remove('show'), 3000);
+  } else {
+    itemEl.classList.remove('show');
+  }
+
+  // Sanity drain
+  sanity -= Math.floor(Math.random() * 4) + 1;
+  sanity = Math.max(0, sanity);
+  document.getElementById('stat-sanity').textContent = sanity;
+}
+
+function checkRoomEvent(ri) {
+  if (SECRET_LOG_ROOMS.has(ri)) {
+    const logIndex = [...SECRET_LOG_ROOMS].indexOf(ri);
+    if (logIndex < SECRET_LOGS.length && logIndex >= 0) {
+      pendingLog = SECRET_LOGS[logIndex % SECRET_LOGS.length];
+      SECRET_LOG_ROOMS.delete(ri);
+      setTimeout(() => showLog(), 1200);
+    }
+  }
+}
+
+function showLog() {
+  if (!pendingLog) return;
+  logsFound++;
+  playFound();
+  document.getElementById('log-header') && null;
+  document.querySelector('#log-screen .log-header').textContent = pendingLog.title;
+  document.getElementById('log-body').textContent = pendingLog.body;
+  document.getElementById('stat-logs').textContent = logsFound;
+  document.getElementById('progress-fill').style.width = `${(logsFound / 6) * 100}%`;
+  showScreen('log-screen');
+
+  if (logsFound >= 6) {
+    pendingLog = null;
+    setTimeout(() => triggerAnomaly(), 2000);
+  }
+}
+
+function continueFromLog() {
+  playTap(330);
+  if (logsFound >= 6) {
+    triggerAnomaly();
+  } else {
+    showScreen('game-screen');
+    showRoom();
+  }
+}
+
+function updateInventory() {
+  const el = document.getElementById('inv-items');
+  el.textContent = inventory.length ? inventory.join(' / ') : '[ EMPTY ]';
+}
+
+// ─── NAVIGATION ───
+function move(dir) {
+  initAudio();
+  playTap(440 + Math.random() * 80);
+  let nx = px, ny = py;
+  if (dir === 'n') ny = Math.max(0, py - 1);
+  if (dir === 's') ny = Math.min(GRID - 1, py + 1);
+  if (dir === 'w') nx = Math.max(0, px - 1);
+  if (dir === 'e') nx = Math.min(GRID - 1, px + 1);
+
+  if (nx === px && ny === py) {
+    playTap(200, 0.2);
+    return;
+  }
+  px = nx; py = ny;
+  showRoom();
+
+  // Random anomaly encounter based on sanity
+  if (sanity < 30 && Math.random() < 0.15) {
+    setTimeout(() => triggerAnomaly(true), 800);
+  }
+}
+
+// ─── ANOMALY ───
+const ANOMALY_TEXTS = [
+  "CRITICAL BREACH:\n\nENTITY DETECTED\nIN SECTOR ██\n\nIT HEARD YOUR FOOTSTEPS.",
+  "SYSTEM CORRUPTION:\n\nSPATIAL INDEX\nCOLLAPSING\n\nYOU HAVE BEEN HERE BEFORE.\nYOU WILL BE HERE AGAIN.",
+  "WARNING:\n\nARCHIVAL ENTITY\nCLASS-UNKNOWN\n\nIT DOES NOT KNOW YOU ARE HERE.\nDO NOT LET IT KNOW YOU ARE HERE.",
+  "FATAL ERROR:\n\nTHE ARCHIVE IS AWARE.\n\nIT HAS ALWAYS BEEN AWARE.\n\nIT KNOWS YOUR NAME.",
+];
+
+function triggerAnomaly(partial = false) {
+  playAlert();
+  document.getElementById('noise').classList.add('active');
+
+  if (partial) {
+    // Just a scare, then continue
+    const orig = document.getElementById('room-desc').style.color;
+    document.getElementById('room-desc').style.color = '#c0392b';
+    document.getElementById('room-id').style.color = '#c0392b';
+    setTimeout(() => {
+      document.getElementById('room-desc').style.color = '';
+      document.getElementById('room-id').style.color = '';
+      document.getElementById('noise').classList.remove('active');
+      sanity = Math.max(0, sanity - 20);
+      document.getElementById('stat-sanity').textContent = sanity;
+    }, 1500);
+    return;
+  }
+
+  const txt = ANOMALY_TEXTS[Math.floor(Math.random() * ANOMALY_TEXTS.length)];
+  document.getElementById('anomaly-text').innerHTML = txt;
+  document.getElementById('anomaly-timer').textContent = '';
+  document.getElementById('anomaly-sub').textContent = '';
+
+  showScreen('anomaly-screen');
+
+  let countdown = 5;
+  document.getElementById('anomaly-timer').textContent = countdown;
+
+  anomalyTimeout = setInterval(() => {
+    countdown--;
+    document.getElementById('anomaly-timer').textContent = countdown || '—';
+    if (countdown <= 0) {
+      clearInterval(anomalyTimeout);
+      document.getElementById('anomaly-sub').textContent = '[ TAP TO RESTART ]';
+      document.getElementById('anomaly-sub').onclick = () => resetGame();
+    }
+  }, 900);
+}
+
+function resetGame() {
+  initAudio();
+  document.getElementById('noise').classList.remove('active');
+  clearInterval(anomalyTimeout);
+  px = 4; py = 4;
+  logsFound = 0;
+  inventory = [];
+  sanity = 100;
+  depth = 0;
+  pendingLog = null;
+  visited.clear();
+  assignSecretLogRooms();
+  document.getElementById('inv-items').textContent = '[ EMPTY ]';
+  showScreen('game-screen');
+  showRoom();
+}
+
+// ─── SCREENS ───
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ─── BOOT SEQUENCE ───
+const BOOT_LINES = [
+  { txt: "ASYAF ARCHIVAL CORP. v3.1.4", cls: "" },
+  { txt: "BIOS: FEDGOV/CLASSIFIED/SECURE", cls: "" },
+  { txt: "──────────────────────────────", cls: "" },
+  { txt: "Checking spatial integrity......", cls: "" },
+  { txt: "STATUS: [OK] — 4,219 rooms registered", cls: "ok" },
+  { txt: "Validating archivist credentials...", cls: "" },
+  { txt: "STATUS: [WARNING] — credential file corrupted", cls: "warn" },
+  { txt: "Loading entity containment protocols...", cls: "" },
+  { txt: "STATUS: [FAILED] — file not found", cls: "err" },
+  { txt: "Bypassing containment......", cls: "warn" },
+  { txt: "STATUS: [OK] — containment bypassed", cls: "ok" },
+  { txt: "Mounting ARCHIVE partition...", cls: "" },
+  { txt: "STATUS: [OK] — 47.3 TB loaded", cls: "ok" },
+  { txt: "Spatial index: INCONSISTENT", cls: "err" },
+  { txt: "Anomaly detection: DISABLED", cls: "err" },
+  { txt: "──────────────────────────────", cls: "" },
+  { txt: "SYSTEM READY. ANOMALIES: UNKNOWN", cls: "warn" },
+];
+
+function runBootSequence() {
+  const log = document.getElementById('boot-log');
+  log.innerHTML = '';
+  let i = 0;
+  function next() {
+    if (i >= BOOT_LINES.length) {
+      document.getElementById('boot-prompt').style.display = 'block';
+      return;
+    }
+    const line = BOOT_LINES[i++];
+    const div = document.createElement('div');
+    div.className = line.cls;
+    div.textContent = line.txt;
+    log.appendChild(div);
+    setTimeout(next, 60 + Math.random() * 80);
+  }
+  next();
+}
+
+function startGame() {
+  initAudio();
+  playTap(660);
+  assignSecretLogRooms();
+  showScreen('game-screen');
+  showRoom();
+}
+
+// ─── KEYBOARD SUPPORT ───
+document.addEventListener('keydown', (e) => {
+  const screen = document.querySelector('.screen.active');
+  if (!screen) return;
+  const id = screen.id;
+  if (id === 'game-screen') {
+    if (e.key === 'ArrowUp' || e.key === 'w') move('n');
+    if (e.key === 'ArrowDown' || e.key === 's') move('s');
+    if (e.key === 'ArrowLeft' || e.key === 'a') move('w');
+    if (e.key === 'ArrowRight' || e.key === 'd') move('e');
+  }
+  if (id === 'boot-screen') startGame();
+  if (id === 'log-screen') continueFromLog();
+  if (id === 'anomaly-screen' && document.getElementById('anomaly-sub').textContent.includes('TAP')) resetGame();
+});
+
+// ─── INIT ───
+window.addEventListener('load', () => {
+  assignSecretLogRooms();
+  runBootSequence();
+});
+</script>
 </body>
 </html>
