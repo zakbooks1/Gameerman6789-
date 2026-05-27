@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ANALOG_OS_v1.04</title>
+    <style>
+        body {
+            margin: 0;
+            background: #000;
+            overflow: hidden;
+        }
+        /* CRT Scanline Effect Overlay */
+        .crt::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.05));
+            background-size: 100% 4px, 6px 100%;
+            z-index: 999;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="crt">
+
+    <script src="https://unpkg.com/kaboom@3000.1.17/dist/kaboom.js"></script>
+
+    <script>
+        // Initialize Kaboom with a retro resolution and green theme
+        kaboom({
+            width: 640,
+            height: 480,
+            letterbox: true,
+            background: [ 5, 10, 5 ], // Very dark green/black
+        });
+
+        // LOAD SOUNDS (Using copyright-free web audio links for demo purposes)
+        loadSound("click", "https://kaboomjs.com/sprites/blip.mp3");
+
+        // --- SCENE 1: THE BOOT SCREEN ---
+        scene("boot", () => {
+            let lineCount = 0;
+            const lines = [
+                "ANALOG MONITOR SYSTEM v1.04",
+                "LOADING MEMORY BANKS... OK",
+                "CONNECTING TO SATELLITE FEED...",
+                "WARNING: UNAUTHORIZED ACCESS IS FORBIDDEN.",
+                "PRESS ANY KEY TO ACCESS ARCHIVE_07_23"
+            ];
+
+            // Add text lines one by one to look like a booting terminal
+            loop(0.8, () => {
+                if (lineCount < lines.length) {
+                    add([
+                        text(lines[lineCount], { size: 16, font: "monospace" }),
+                        pos(40, 40 + (lineCount * 30)),
+                        color(0, 255, 100) // Classic matrix green
+                    ]);
+                    play("click", { volume: 0.3, detune: -500 });
+                    lineCount++;
+                }
+            });
+
+            // Go to next scene on input
+            onKeyPress(() => {
+                if (lineCount >= lines.length) {
+                    go("terminal");
+                }
+            });
+            onMousePress(() => {
+                if (lineCount >= lines.length) {
+                    go("terminal");
+                }
+            });
+        });
+
+        // --- SCENE 2: THE INTERACTIVE TERMINAL ---
+        scene("terminal", () => {
+            play("click", { volume: 0.5 });
+
+            add([
+                text("FILE DETECTED: 'DONOT_OPEN.EXE'\n\n[CLICK SCREEN TO EXECUTE]", { size: 18, font: "monospace", width: 500 }),
+                pos(center()),
+                anchor("center"),
+                color(0, 255, 100)
+            ]);
+
+            onMousePress(() => {
+                go("scare");
+            });
+        });
+
+        // --- SCENE 3: THE CORRUPTION / SCARE ---
+        scene("scare", () => {
+            // Screen shake and glitch audio
+            shake(10);
+            play("click", { volume: 1, detune: -1200 }); // Distorted sound
+
+            // Deep red background override
+            add([
+                rect(width(), height()),
+                color(150, 0, 0),
+                z(-1)
+            ]);
+
+            // Unsettling message
+            const glitchText = add([
+                text("IT IS INSIDE THE HOUSE.\n\nIT IS LOOKING AT YOU.", { size: 24, font: "monospace" }),
+                pos(center()),
+                anchor("center"),
+                color(255, 255, 255)
+            ]);
+
+            // Randomly twitch the text position to look glitched
+            onUpdate(() => {
+                glitchText.pos.x = center().x + rand(-5, 5);
+                glitchText.pos.y = center().y + rand(-5, 5);
+            });
+
+            // Restart game after 4 seconds
+            wait(4, () => {
+                go("boot");
+            });
+        });
+
+        // Start the game
+        go("boot");
+    </script>
+</body>
+</html>
