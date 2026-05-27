@@ -2,23 +2,23 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ANALOG_OS_v1.04</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ASYAF_DATA_LOG</title>
     <style>
         body {
             margin: 0;
-            background: #000;
+            background: #050505;
             overflow: hidden;
+            touch-action: none; /* Prevents mobile double-tap zooming */
         }
-        /* CRT Scanline Effect Overlay */
+        /* Mobile CRT Overlay */
         .crt::after {
             content: " ";
             display: block;
             position: absolute;
             top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%), 
-                        linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.05));
-            background-size: 100% 4px, 6px 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%);
+            background-size: 100% 5px;
             z-index: 999;
             pointer-events: none;
         }
@@ -29,105 +29,163 @@
     <script src="https://unpkg.com/kaboom@3000.1.17/dist/kaboom.js"></script>
 
     <script>
-        // Initialize Kaboom with a retro resolution and green theme
+        // Initialize Kaboom with a vertical resolution tailored for mobile screens
         kaboom({
-            width: 640,
-            height: 480,
+            width: 360,
+            height: 640,
             letterbox: true,
-            background: [ 5, 10, 5 ], // Very dark green/black
+            background: [ 22, 24, 18 ], // Dingy, dirty wallpaper yellow/green tint
         });
 
-        // LOAD SOUNDS (Using copyright-free web audio links for demo purposes)
-        loadSound("click", "https://kaboomjs.com/sprites/blip.mp3");
+        // Load retro blip audio
+        loadSound("tap", "https://kaboomjs.com/sprites/blip.mp3");
 
-        // --- SCENE 1: THE BOOT SCREEN ---
-        scene("boot", () => {
-            let lineCount = 0;
-            const lines = [
-                "ANALOG MONITOR SYSTEM v1.04",
-                "LOADING MEMORY BANKS... OK",
-                "CONNECTING TO SATELLITE FEED...",
-                "WARNING: UNAUTHORIZED ACCESS IS FORBIDDEN.",
-                "PRESS ANY KEY TO ACCESS ARCHIVE_07_23"
-            ];
+        // --- GLOBAL LORE DATA ---
+        let currentRoom = 101;
+        let logsFound = 0;
 
-            // Add text lines one by one to look like a booting terminal
-            loop(0.8, () => {
-                if (lineCount < lines.length) {
-                    add([
-                        text(lines[lineCount], { size: 16, font: "monospace" }),
-                        pos(40, 40 + (lineCount * 30)),
-                        color(0, 255, 100) // Classic matrix green
-                    ]);
-                    play("click", { volume: 0.3, detune: -500 });
-                    lineCount++;
-                }
-            });
-
-            // Go to next scene on input
-            onKeyPress(() => {
-                if (lineCount >= lines.length) {
-                    go("terminal");
-                }
-            });
-            onMousePress(() => {
-                if (lineCount >= lines.length) {
-                    go("terminal");
-                }
-            });
-        });
-
-        // --- SCENE 2: THE INTERACTIVE TERMINAL ---
-        scene("terminal", () => {
-            play("click", { volume: 0.5 });
-
+        // --- SCENE 1: THE MOBILE BOOT SCREEN ---
+        scene("intro", () => {
             add([
-                text("FILE DETECTED: 'DONOT_OPEN.EXE'\n\n[CLICK SCREEN TO EXECUTE]", { size: 18, font: "monospace", width: 500 }),
+                text("ASYAF ARCHIVAL CORP.\nPROPERTY OF US GOVT.\n\nRESTRICTED ACCESS\n\n[TAP SCREEN TO DECRYPT]", {
+                    size: 14,
+                    font: "monospace",
+                    width: 300,
+                    align: "center"
+                }),
                 pos(center()),
                 anchor("center"),
-                color(0, 255, 100)
+                color(220, 200, 150)
             ]);
 
             onMousePress(() => {
-                go("scare");
+                play("tap", { volume: 0.5 });
+                go("game");
             });
         });
 
-        // --- SCENE 3: THE CORRUPTION / SCARE ---
-        scene("scare", () => {
-            // Screen shake and glitch audio
-            shake(10);
-            play("click", { volume: 1, detune: -1200 }); // Distorted sound
+        // --- SCENE 2: INTERACTIVE BACKROOMS DISCOVERY ---
+        scene("game", () => {
+            
+            // Lore texts tied to specific room "coordinates"
+            function getRoomLore(room) {
+                if (room === 101) return "ROOM 101:\nFluorescent hum is registered at 110Hz. The damp carpet smell is overwhelming. The walls stretch infinitely north.";
+                if (room === 102) return "ROOM 102:\nFound a discarded VHS tape labeled 'DO NOT PLAY'. Footsteps heard behind the partition wall. Keep moving.";
+                if (room === 103) return "ROOM 103:\nLOG_ENTRY_04:\n'We built these halls to store data. The data grew. It synthesized space. We cannot find the exit.'";
+                return "ROOM " + room + ":\nEndless repeating beige wallpaper. The architecture makes no geometric sense. Silence. Too much silence.";
+            }
 
-            // Deep red background override
+            // Display Lore Text
+            const description = add([
+                text(getRoomLore(currentRoom), { size: 13, font: "monospace", width: 320 }),
+                pos(20, 60),
+                color(40, 40, 40)
+            ]);
+
+            // Interface Dividers
+            add([
+                rect(320, 2),
+                pos(20, 320),
+                color(100, 100, 80)
+            ]);
+
+            // Mobile-friendly Control D-Pad labels
+            add([
+                text("NAVIGATE SYSTEM\n(TAP EDGES TO MOVE)", { size: 12, font: "monospace", align: "center" }),
+                pos(width() / 2, 350),
+                anchor("center"),
+                color(80, 80, 70)
+            ]);
+
+            const northBtn = add([
+                text("[ NORTH ]", { size: 16, font: "monospace" }),
+                pos(width() / 2, 400),
+                anchor("center"),
+                color(40, 40, 40),
+                area()
+            ]);
+
+            const westBtn = add([
+                text("[ WEST ]", { size: 16, font: "monospace" }),
+                pos(width() / 2 - 80, 460),
+                anchor("center"),
+                color(40, 40, 40),
+                area()
+            ]);
+
+            const eastBtn = add([
+                text("[ EAST ]", { size: 16, font: "monospace" }),
+                pos(width() / 2 + 80, 460),
+                anchor("center"),
+                color(40, 40, 40),
+                area()
+            ]);
+
+            // Touch Mechanics for Movement
+            northBtn.onClick(() => {
+                play("tap", { volume: 0.4 });
+                currentRoom += 1;
+                logsFound++;
+                
+                if (logsFound >= 4) {
+                    go("anomaly");
+                } else {
+                    description.text = getRoomLore(currentRoom);
+                }
+            });
+
+            westBtn.onClick(() => {
+                play("tap", { volume: 0.4 });
+                currentRoom -= 2;
+                description.text = getRoomLore(currentRoom);
+            });
+
+            eastBtn.onClick(() => {
+                play("tap", { volume: 0.4 });
+                currentRoom += 3;
+                description.text = getRoomLore(currentRoom);
+            });
+        });
+
+        // --- SCENE 3: THE CORRUPTED ENCOUNTER ---
+        scene("anomaly", () => {
+            shake(15);
+            play("tap", { volume: 1, detune: -1500 });
+
+            // Inverse coloring to pitch black for distortion effect
             add([
                 rect(width(), height()),
-                color(150, 0, 0),
+                color(0, 0, 0),
                 z(-1)
             ]);
 
-            // Unsettling message
-            const glitchText = add([
-                text("IT IS INSIDE THE HOUSE.\n\nIT IS LOOKING AT YOU.", { size: 24, font: "monospace" }),
+            const alertText = add([
+                text("CRITICAL ERROR:\n\nANOMALOUS ENTITY\nDETECTED IN ARCHIVE.\n\nIT HEARD YOUR FOOTSTEPS.", {
+                    size: 16,
+                    font: "monospace",
+                    width: 300,
+                    align: "center"
+                }),
                 pos(center()),
                 anchor("center"),
-                color(255, 255, 255)
+                color(255, 50, 50)
             ]);
 
-            // Randomly twitch the text position to look glitched
+            // Text glitch effect tracking fingers or random ticks
             onUpdate(() => {
-                glitchText.pos.x = center().x + rand(-5, 5);
-                glitchText.pos.y = center().y + rand(-5, 5);
+                alertText.pos.x = center().x + rand(-3, 3);
+                alertText.pos.y = center().y + rand(-3, 3);
             });
 
-            // Restart game after 4 seconds
-            wait(4, () => {
-                go("boot");
+            onMousePress(() => {
+                currentRoom = 101;
+                logsFound = 0;
+                go("intro");
             });
         });
 
-        // Start the game
-        go("boot");
+        // Initialize Game Loop
+        go("intro");
     </script>
 </body>
 </html>
